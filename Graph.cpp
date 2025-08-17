@@ -202,7 +202,7 @@ bool Graph::has_eulerian_cycle() const {
 std::vector<int> Graph::get_eulerian_cycle() const {
 
     if (!has_eulerian_cycle())// Check if the graph has an Eulerian cycle
-        throw std::runtime_error("Eulerian circuit does not exist.");
+        throw std::runtime_error("Eulerian circuit does not exist");
 
     int a = -1;
     long long totalHalfEdges = 0;// Count total half-edges to find a starting point
