@@ -16,11 +16,11 @@ namespace graph {
  * @param num_ver The number of vertices in the graph.
  * @throws std::invalid_argument if the number of vertices is invalid.
  */
-Graph::Graph(int num_ver, bool is_directed) : num_of_vertex(num_ver), directed(is_directed) {
+Graph::Graph(int num_ver) : num_of_vertex(num_ver) {
     if ( num_ver <= 0) {
         throw std::invalid_argument("Invalid number of vertex");
     }
-    adj_list.resize(num_ver);//
+    adj_list.resize(num_ver);
 }
 
 /**
@@ -34,7 +34,7 @@ void Graph::addEdge(int src, int dest, int w) {
     validVertex(dest);
 
     adj_list[src].push_back({dest, w});
-    if (!directed && src != dest) {
+    if (src != dest) {
         adj_list[dest].push_back({src, w});
     }
 }
@@ -54,7 +54,7 @@ void Graph::removeEdge(int src, int dest) {
     if(!removed) {
         throw std::runtime_error("Edge not found in the graph");
     }
-    if (!directed && src != dest) {
+    if ( src != dest) {
         removed = removeNeighborEdge(dest, src)||removed;
     }
 }
@@ -91,7 +91,7 @@ std::vector<std::tuple<int,int,int>> Graph::get_edges() const {
 
     for (int i = 0; i < num_of_vertex; ++i) {
         for(const auto& edge : adj_list[i]) {
-            if(directed||i<edge.dest) { // to avoid duplicates in undirected graphs
+            if(i < edge.dest) { // to avoid duplicates in undirected graphs
                 edges.emplace_back(i, edge.dest, edge.weight);
             }
         }

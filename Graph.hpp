@@ -17,12 +17,11 @@ public:
     };
 private:
     int num_of_vertex;
-    bool directed = false; // for directed or undirected graph
     std::vector<std::vector<Edge>> adj_list; // adjacency list representation
 
 public:
 
-    explicit Graph(int num_ver, bool is_directed = false);//constructor
+    explicit Graph(int num_ver);//constructor
 
     //~Graph();// destructor
    

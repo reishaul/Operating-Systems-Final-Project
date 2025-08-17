@@ -1,0 +1,186 @@
+#include "Graph.hpp"// Include the Graph class header
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include <cerrno>// For errno
+#include <cstring>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+
+using namespace graph;
+static const int PORT = 5555;// Define the port number for the server
+// Define the maximum number of pending connections in the queue
+static const int BACKLOG = 16;
+
+
+/*
+    * Reads all text from a file descriptor until EOF.
+    * Returns true on success, false on failure.
+    * If reading fails, sets err to an error message.
+    * The file descriptor must be open for reading.
+*/
+static bool readAllText(int fd, std::string &out) {
+    char buf[4096];// Buffer for reading data
+    ssize_t n;
+    out.clear();
+    while ((n = ::read(fd, buf, sizeof(buf))) > 0) {
+        out.append(buf, buf + n);// Append the read data to the output string
+    }
+    return (n >= 0);
+}
+
+/*
+    * Writes a string to a file descriptor.
+    * Returns true on success, false on failure.
+    * The file descriptor must be open for writing.
+*/
+static bool writeAll(int fd, const std::string &s) {
+    size_t sent = 0;// Number of bytes sent
+    while (sent < s.size()) {
+        ssize_t n = ::write(fd, s.data() + sent, s.size() - sent);// Write data to the file descriptor
+        if (n <= 0) return false;
+        sent += static_cast<size_t>(n);// Update the number of bytes sent
+    }
+    return true;
+}
+
+/*
+    * Parses a graph from a text format:
+    * V <num_vertices>
+    * E <num_edges>
+    * <src> <dest>
+    * Returns true on success, false on failure.
+    * If parsing fails, sets err to an error message.
+*/
+// static bool parseGraphText(const std::string &txt, Graph &G, std::string &err) {
+//     std::istringstream in(txt);// Create an input stream from the text
+//     std::string tag;// Tag for the type of data
+//     int V=0, E=0;
+
+//     // Read the number of vertices and edges from the input stream
+//     if (!(in >> tag) || tag != "V") { err = "expected 'V <num_vertices>'"; return false; }
+//     if (!(in >> V) || V < 0)        { err = "bad vertex count"; return false; }
+//     if (!(in >> tag) || tag != "E") { err = "expected 'E <num_edges>'"; return false; }
+//     if (!(in >> E) || E < 0)        { err = "bad edge count"; return false; }
+
+//     G = Graph(V);
+//     // Read edges from the input stream
+//     for (int i = 0; i < E; ++i) {
+//         int u, v;
+//         if (!(in >> u >> v)) { err = "not enough edge lines"; return false; }//
+//         G.addEdge(u, v);
+//     }
+//     return true;
+// }
+
+/**
+ * @brief Handles a client connection
+ * Reads the graph from the client, checks for an Eulerian cycle,
+ * and sends the result back to the client.
+ * @param cfd Client file descriptor.
+ */
+static void handleClient(int cfd) {
+    std::string req;
+    if (!readAllText(cfd, req)) {
+        writeAll(cfd, "ERR READ_FAILED\n");
+        return;
+    }
+
+    std::string perr;
+    int V = 0, E = 0;
+    std::istringstream in(req);
+    std::string tag;
+
+    // קריאה ראשונית של מספר הקודקודים והקשתות
+    if (!(in >> tag) || tag != "V") { 
+        writeAll(cfd, "ERR PARSE_FAILED: expected 'V <num_vertices>'\n");
+        return;
+    }
+    if (!(in >> V) || V <= 0) {
+        writeAll(cfd, "ERR PARSE_FAILED: invalid vertex count\n");
+        return;
+    }
+    if (!(in >> tag) || tag != "E") {
+        writeAll(cfd, "ERR PARSE_FAILED: expected 'E <num_edges>'\n");
+        return;
+    }
+    if (!(in >> E) || E < 0) {
+        writeAll(cfd, "ERR PARSE_FAILED: invalid edge count\n");
+        return;
+    }
+
+    Graph G(V);// Create a graph with the specified number of vertices
+    for(int i = 0; i < E; ++i) {
+        int u, v;
+        if (!(in >> u >> v)) {
+            writeAll(cfd, "ERR PARSE_FAILED: not enough edge lines\n");
+            return;
+        }
+        try{
+            G.addEdge(u, v);// Add the edge to the graph
+        } catch (const std::exception &e) {
+            writeAll(cfd, "ERR PARSE_FAILED: " + std::string(e.what()) + "\n");
+            return;
+        }
+    }
+
+    // Check if the graph has an Eulerian cycle
+    if (!G.has_eulerian_cycle()) {
+        writeAll(cfd, "ERR NO_EULERIAN_CYCLE\n");
+        return;
+    }
+
+    auto circuit = G.get_eulerian_cycle();
+
+    if (circuit.empty()) {// If no Eulerian cycle is found
+        writeAll(cfd, "ERR NO_EULERIAN_CYCLE\n");
+        return;
+    }
+
+    std::ostringstream out;
+    out << "OK";
+    // Write the result to the output stream
+    for (int v : circuit) out << ' ' << v;
+    out << "\n";
+    writeAll(cfd, out.str());
+}
+
+int main() {
+    int sfd = ::socket(AF_INET, SOCK_STREAM, 0);// Create a socket for the server(ipv4, TCP)
+    if (sfd < 0) { perror("socket"); return 1; }
+
+    int opt = 1;
+    setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));// Set socket options to reuse the address
+
+    // Set up the server address structure
+    sockaddr_in addr{};// Server address 
+    addr.sin_family = AF_INET;// IPv4 address family
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(PORT);
+
+    if (bind(sfd, (sockaddr*)&addr, sizeof(addr)) < 0) { perror("bind"); return 1; }// Bind the socket to the address and port
+    if (listen(sfd, BACKLOG) < 0) { perror("listen"); return 1; }// Listen for incoming connections
+
+    std::cerr << "Server listening on port " << PORT << " ...\n";
+
+    // Main loop to accept and handle client connections
+    // Accept connections in a loop and handle each client in the handleClient function
+    while (true) {
+        sockaddr_in cli{}; socklen_t clilen = sizeof(cli);// Client address structure
+        int cfd = accept(sfd, (sockaddr*)&cli, &clilen);// Accept a client connection
+        if (cfd < 0) {
+            if (errno == EINTR) continue;
+            perror("accept"); break;
+        }
+        handleClient(cfd);// Handle the client connection
+        close(cfd);// Close the client connection
+    }
+
+    close(sfd);// Close the server socket
+    return 0;
+}
