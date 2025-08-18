@@ -22,13 +22,9 @@ private:
 public:
 
     explicit Graph(int num_ver);//constructor
-
-    //~Graph();// destructor
    
     //declaration of all the function we used in Graph.cpp
     void addEdge(int src, int dest, int weight = 1);
-
-    //void addTreeEdge(int parent, int child, int w);
 
     void removeEdge(int src, int dest);
 
@@ -40,8 +36,6 @@ public:
 
     bool has_eulerian_cycle() const;
     std::vector<int> get_eulerian_cycle() const;
-
-    //bool isDirected() const { return directed; }
 
 private:
     void validVertex(int v) const;
