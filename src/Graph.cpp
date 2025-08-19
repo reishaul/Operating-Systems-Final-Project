@@ -5,6 +5,8 @@
  graph-related information such as the number of vertices and edges.
 */
 #include "Graph.hpp"
+#include "algorithms/MST.hpp" // Include the MST algorithm for minimum spanning tree functionality
+#include "algorithms/MaxFlow.hpp" // Include the MaxFlow algorithm
 #include <stack>
 #include <algorithm>
 
@@ -265,4 +267,76 @@ std::vector<int> Graph::get_eulerian_cycle() const {
     return circuit;
 }
 
+//for the algserver 
+/**
+ * Finds all strongly connected components in the graph.
+ * Uses Tarjan's algorithm to find the components.
+ * @param numEdges Reference to store the number of edges found
+ * @return A vector of strongly connected components, each represented as a vector of vertex IDs.
+ */
+std::vector<std::vector<int>> Graph::strongly_connected_components() const {
+    int n = num_of_vertex;
+    std::vector<int> index(n, -1), lowlink(n, -1), onstack(n, 0);
+    //index= the index of the visit in the dfs
+    //lowlink=the smallest node index which can be reached from the subtree rooted with the node
+    //onstack=boolean array to check if a node is in the stack
+    std::vector<std::vector<int>> comps;//to hold the strongly connected components (the result)
+    std::vector<int> st;//to hold the current stack of vertices
+    int idx = 0;
+
+    /**
+     * Depth first search (DFS) function
+     * @param v The current vertex being visited
+     * This function updates the index and lowlink values, and finds strongly connected components
+     */
+    std::function<void(int)> dfs = [&](int v) {
+        index[v] = lowlink[v] = idx++;//define the index and lowlink values
+        st.push_back(v);
+        onstack[v] = 1;//mark the vertex as being on the stack
+
+        for (auto &e : adj_list[v]) {//go through all neighbors
+            int w = e.dest;
+            if (index[w] == -1) {//if w is not visited
+                dfs(w);//recursively visit w
+                lowlink[v] = std::min(lowlink[v], lowlink[w]);
+            } else if (onstack[w]) {//if w is on the stack
+                lowlink[v] = std::min(lowlink[v], index[w]);//update lowlink value
+            }
+        }
+        // If v is a root node, pop the stack and generate a new component
+        if (lowlink[v] == index[v]) {
+            std::vector<int> comp;
+            while (true) {// Pop from the stack until we find the root
+                int w = st.back(); st.pop_back();
+                onstack[w] = 0;
+                comp.push_back(w);
+                if (w == v) break;
+            }
+            comps.push_back(comp);
+        }
+    };
+
+    for (int v = 0; v < n; v++) {// Iterate through all vertices
+        if (index[v] == -1) dfs(v);// If not visited, start DFS
+    }
+    return comps;
+}
+
+long long Graph::mst_weight() const {
+    return mst_weight_kruskal(*this);
+}
+
+int Graph::max_flow(int a, int b) const {
+    int n = num_of_vertex;
+    MaxFlow mf(n);
+
+    // Initialize the MaxFlow object with the graph's edges
+    for (int u = 0; u < n; ++u) {
+        for (auto &e : adj_list[u]) {
+            mf.addEdge(u, e.dest, e.weight);
+        }
+    }
+    return mf.getMaxFlow(a, b);
+}
+  
 } // namespace graph

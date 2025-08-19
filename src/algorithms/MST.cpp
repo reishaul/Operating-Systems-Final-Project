@@ -1,4 +1,5 @@
-#include "MST.hpp"
+#include "algorithms/MST.hpp"
+#include "Graph.hpp"
 #include <algorithm>
 
 /**

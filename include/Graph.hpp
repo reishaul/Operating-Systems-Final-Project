@@ -5,6 +5,13 @@
 #include <tuple>
 #include <stdexcept>
 #include <iostream>
+#include <functional>
+
+// Forward declarations
+namespace graph {
+    class Graph;
+}
+long long mst_weight_kruskal(const graph::Graph& G);
 
 namespace graph {
 
@@ -36,6 +43,22 @@ public:
 
     bool has_eulerian_cycle() const;
     std::vector<int> get_eulerian_cycle() const;
+
+    //for algserver:
+
+    long long mst_weight() const;//implementation in cpp file
+
+    auto hamiltonian_cycle() const {
+        // Implement Hamiltonian cycle finding logic
+        // This is a placeholder, actual implementation needed
+        return std::vector<int>{};
+    }
+
+    int max_flow(int a, int b) const;
+
+    std::vector<std::vector<int>> strongly_connected_components() const;
+
+
 
 private:
     void validVertex(int v) const;

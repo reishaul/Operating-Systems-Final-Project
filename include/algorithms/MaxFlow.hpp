@@ -43,7 +43,7 @@ public:
             // BFS to find augmenting path
             while (!q.empty()) {
                 int u = q.front(); q.pop();
-                for (int i = 0; i < adj[u].size(); ++i) {
+                for (size_t i = 0; i < adj[u].size(); ++i) {
                     Edge &e = adj[u][i];
                     if (level[e.to] < 0 && e.cap > 0) {
                         level[e.to] = level[u] + 1;

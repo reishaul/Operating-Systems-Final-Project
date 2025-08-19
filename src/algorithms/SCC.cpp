@@ -1,4 +1,4 @@
-#include "SCC.hpp"
+#include "algorithms/SCC.hpp"
 #include <stack>
 #include <functional>
 

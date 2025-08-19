@@ -1,4 +1,4 @@
-#include "Hamilton.hpp"
+#include "algorithms/Hamilton.hpp"
 #include <functional>
 
 #include <unordered_set>
@@ -14,10 +14,10 @@ bool hasEdge(const Graph& G, int u, int v){
     auto edges = G.get_edges(); // Get all edges in the graph
     if (u>v) std::swap(u,v);// Ensure u < v
     for (auto &t : edges){
-        int a,b,w;//src, dst, weight
+        int a,b;//src, dest
         a = std::get<0>(t);
         b = std::get<1>(t);
-        w = std::get<2>(t);
+        //w = std::get<2>(t);
         
         if (a==u && b==v) return true;
     }

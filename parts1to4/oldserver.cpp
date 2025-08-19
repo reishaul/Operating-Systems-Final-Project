@@ -49,34 +49,7 @@ static bool writeAll(int fd, const std::string &s) {
     return true;
 }
 
-/*
-    * Parses a graph from a text format:
-    * V <num_vertices>
-    * E <num_edges>
-    * <src> <dest>
-    * Returns true on success, false on failure.
-    * If parsing fails, sets err to an error message.
-*/
-// static bool parseGraphText(const std::string &txt, Graph &G, std::string &err) {
-//     std::istringstream in(txt);// Create an input stream from the text
-//     std::string tag;// Tag for the type of data
-//     int V=0, E=0;
 
-//     // Read the number of vertices and edges from the input stream
-//     if (!(in >> tag) || tag != "V") { err = "expected 'V <num_vertices>'"; return false; }
-//     if (!(in >> V) || V < 0)        { err = "bad vertex count"; return false; }
-//     if (!(in >> tag) || tag != "E") { err = "expected 'E <num_edges>'"; return false; }
-//     if (!(in >> E) || E < 0)        { err = "bad edge count"; return false; }
-
-//     G = Graph(V);
-//     // Read edges from the input stream
-//     for (int i = 0; i < E; ++i) {
-//         int u, v;
-//         if (!(in >> u >> v)) { err = "not enough edge lines"; return false; }//
-//         G.addEdge(u, v);
-//     }
-//     return true;
-// }
 
 /**
  * @brief Handles a client connection
@@ -96,8 +69,8 @@ static void handleClient(int cfd) {
     std::istringstream in(req);
     std::string tag;
 
-    // קריאה ראשונית של מספר הקודקודים והקשתות
-    if (!(in >> tag) || tag != "V") { 
+    // Read the number of vertices
+    if (!(in >> tag) || tag != "V") {
         writeAll(cfd, "ERR PARSE_FAILED: expected 'V <num_vertices>'\n");
         return;
     }

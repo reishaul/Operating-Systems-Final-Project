@@ -1,23 +1,10 @@
-CXX = g++
-CXXFLAGS = -g -Wall
-TARGET = euler
-SRCS = Graph.cpp main.cpp
-OBJS = $(SRCS:.cpp=.o)
+CXX=g++
+CXXFLAGS=-std=c++17 -Wall -Wextra -Iinclude -IstrategyAlg
+SRC=src/*.cpp src/algorithms/*.cpp
+OUT=server
 
-all: $(TARGET)
-
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
-
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-run: $(TARGET)
-	./$(TARGET) -v 4 -e 4 -s 3
+all:
+	$(CXX) $(CXXFLAGS) $(SRC) -o $(OUT)
 
 clean:
-	rm -f $(TARGET) $(OBJS) \
-	      gmon.out gprof_report.txt valgrind_report.txt \
-	      callgrind.out.*
-
-.PHONY: all clean run
+	rm -f $(OUT)
