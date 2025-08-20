@@ -1,4 +1,5 @@
 #include "Graph.hpp"// Include the Graph class header
+#include "Digraph.hpp"// Include the Digraph class header
 #include "AlgorithmFactory.hpp"// Include the AlgorithmFactory header
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -97,34 +98,37 @@ void handleClient(int cfd) {
         return;
     }
 
+  
     Graph G(V);// Create a graph with the specified number of vertices
+   
+    bool withWeight = (algo == "MST" || algo == "MAXFLOW");
+
     for(int i = 0; i < E; ++i) {
-        int u, v;
-        if (!(in >> u >> v)) {
-            writeAll(cfd, "ERR PARSE_FAILED: not enough edge lines\n");
-            return;
+        int u,v,w=1;//default weight is 1
+        if(withWeight){
+            if(!(in>>u>>v>>w)){
+                writeAll(cfd, "ERR PARSE_FAILED: invalid edge line format\n");
+                return;
+            }
+            G.addEdge(u, v, w);// Add the edge with weight to the graph
         }
-    
-        G.addEdge(u, v);// Add the edge to the graph
+        else{
+            if(!(in>>u>>v)){
+                writeAll(cfd, "ERR PARSE_FAILED: invalid edge line format\n");
+                return;
+            }
+            G.addEdge(u, v);// Add the edge without weight to the graph
+        }
     }
+
 
     if (auto alg = graph::AlgorithmFactory::create(algo)) {
         writeAll(cfd, alg->run(G));
     }
     else {
         writeAll(cfd, "ERR UNKNOWN ALGORITHM\n");
-    }
+    }  
 
-
-    // std::ostringstream out;
-    // auto alg = graph::AlgorithmFactory::create(algo);
-    // if(!alg) {
-    //     writeAll(cfd, "ERR UNKNOWN ALGORITHM\n");
-    //     return;
-    // }
-
-    // std::string result = alg->run(G);
-    // writeAll(cfd, result);
 }
 
 

@@ -1,10 +1,19 @@
-CXX=g++
-CXXFLAGS=-std=c++17 -Wall -Wextra -Iinclude -IstrategyAlg
-SRC=src/*.cpp src/algorithms/*.cpp
-OUT=server
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra
+INCLUDES = -Iinclude -IstrategyAlg
 
-all:
-	$(CXX) $(CXXFLAGS) $(SRC) -o $(OUT)
+SRC = $(wildcard src/*.cpp) $(wildcard src/algorithms/*.cpp)
+OBJ = $(SRC:.cpp=.o)
+
+TARGET = server
+
+all: $(TARGET)
+
+$(TARGET): $(OBJ)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ -o $@
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	rm -f $(OUT)
+	rm -f $(OBJ) $(TARGET)

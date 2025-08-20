@@ -4,7 +4,7 @@
 #include "../strategyAlg/MSTAlg.hpp"
 #include "../strategyAlg/HamiltonAlg.hpp"
 #include "../strategyAlg/MaxFlowAlg.hpp"
-#include "../strategyAlg/SCCAlg.hpp"
+#include "../strategyAlg/MaxCliqueAlg.hpp" // Include the MaxClique algorithm
 
 #include <memory>
 #include <string>
@@ -17,7 +17,7 @@ struct AlgorithmFactory {
         if(name == "MST") return std::make_unique<MSTAlgorithm>();
         if(name == "HAMILTON") return std::make_unique<HamiltonAlgorithm>();
         if(name == "MAXFLOW") return std::make_unique<MaxFlowAlgorithm>();
-        if(name == "SCC") return std::make_unique<SCCAlgorithm>();
+        if(name=="MAXCLIQUE") return std::make_unique<MaxCliqueAlgorithm>();
         return nullptr;
     }
 };

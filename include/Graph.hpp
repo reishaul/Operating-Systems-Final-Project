@@ -39,6 +39,9 @@ public:
 
     int get_num_of_vertex() const;
 
+    // Alias for get_num_of_vertex for convenience
+    //int size() const { return get_num_of_vertex(); }
+
     std::vector<std::tuple<int,int,int>> get_edges() const;
 
     bool has_eulerian_cycle() const;
@@ -48,15 +51,16 @@ public:
 
     long long mst_weight() const;//implementation in cpp file
 
-    auto hamiltonian_cycle() const {
-        // Implement Hamiltonian cycle finding logic
-        // This is a placeholder, actual implementation needed
+    auto find_hamiltonian_cycle() const {
         return std::vector<int>{};
     }
 
     int max_flow(int a, int b) const;
 
-    std::vector<std::vector<int>> strongly_connected_components() const;
+    //std::vector<std::vector<int>> strongly_connected_components() const;
+
+    // Get neighbors of a vertex
+    const std::vector<Edge>& neighbors(int v) const;
 
 
 

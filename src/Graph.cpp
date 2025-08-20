@@ -39,9 +39,8 @@ void Graph::addEdge(int src, int dest, int w) {
     if (src != dest) {
         adj_list[dest].push_back({src, w});
     }
+    //edges.push_back({src, dest, w});
 }
-
-// 
 
 /**
  * @brief Removes an edge between two vertices.
@@ -274,53 +273,53 @@ std::vector<int> Graph::get_eulerian_cycle() const {
  * @param numEdges Reference to store the number of edges found
  * @return A vector of strongly connected components, each represented as a vector of vertex IDs.
  */
-std::vector<std::vector<int>> Graph::strongly_connected_components() const {
-    int n = num_of_vertex;
-    std::vector<int> index(n, -1), lowlink(n, -1), onstack(n, 0);
-    //index= the index of the visit in the dfs
-    //lowlink=the smallest node index which can be reached from the subtree rooted with the node
-    //onstack=boolean array to check if a node is in the stack
-    std::vector<std::vector<int>> comps;//to hold the strongly connected components (the result)
-    std::vector<int> st;//to hold the current stack of vertices
-    int idx = 0;
+// std::vector<std::vector<int>> Graph::strongly_connected_components() const {
+//     int n = num_of_vertex;
+//     std::vector<int> index(n, -1), lowlink(n, -1), onstack(n, 0);
+//     //index= the index of the visit in the dfs
+//     //lowlink=the smallest node index which can be reached from the subtree rooted with the node
+//     //onstack=boolean array to check if a node is in the stack
+//     std::vector<std::vector<int>> comps;//to hold the strongly connected components (the result)
+//     std::vector<int> st;//to hold the current stack of vertices
+//     int idx = 0;
 
-    /**
-     * Depth first search (DFS) function
-     * @param v The current vertex being visited
-     * This function updates the index and lowlink values, and finds strongly connected components
-     */
-    std::function<void(int)> dfs = [&](int v) {
-        index[v] = lowlink[v] = idx++;//define the index and lowlink values
-        st.push_back(v);
-        onstack[v] = 1;//mark the vertex as being on the stack
+//     /**
+//      * Depth first search (DFS) function
+//      * @param v The current vertex being visited
+//      * This function updates the index and lowlink values, and finds strongly connected components
+//      */
+//     std::function<void(int)> dfs = [&](int v) {
+//         index[v] = lowlink[v] = idx++;//define the index and lowlink values
+//         st.push_back(v);
+//         onstack[v] = 1;//mark the vertex as being on the stack
 
-        for (auto &e : adj_list[v]) {//go through all neighbors
-            int w = e.dest;
-            if (index[w] == -1) {//if w is not visited
-                dfs(w);//recursively visit w
-                lowlink[v] = std::min(lowlink[v], lowlink[w]);
-            } else if (onstack[w]) {//if w is on the stack
-                lowlink[v] = std::min(lowlink[v], index[w]);//update lowlink value
-            }
-        }
-        // If v is a root node, pop the stack and generate a new component
-        if (lowlink[v] == index[v]) {
-            std::vector<int> comp;
-            while (true) {// Pop from the stack until we find the root
-                int w = st.back(); st.pop_back();
-                onstack[w] = 0;
-                comp.push_back(w);
-                if (w == v) break;
-            }
-            comps.push_back(comp);
-        }
-    };
+//         for (auto &e : adj_list[v]) {//go through all neighbors
+//             int w = e.dest;
+//             if (index[w] == -1) {//if w is not visited
+//                 dfs(w);//recursively visit w
+//                 lowlink[v] = std::min(lowlink[v], lowlink[w]);
+//             } else if (onstack[w]) {//if w is on the stack
+//                 lowlink[v] = std::min(lowlink[v], index[w]);//update lowlink value
+//             }
+//         }
+//         // If v is a root node, pop the stack and generate a new component
+//         if (lowlink[v] == index[v]) {
+//             std::vector<int> comp;
+//             while (true) {// Pop from the stack until we find the root
+//                 int w = st.back(); st.pop_back();
+//                 onstack[w] = 0;
+//                 comp.push_back(w);
+//                 if (w == v) break;
+//             }
+//             comps.push_back(comp);
+//         }
+//     };
 
-    for (int v = 0; v < n; v++) {// Iterate through all vertices
-        if (index[v] == -1) dfs(v);// If not visited, start DFS
-    }
-    return comps;
-}
+//     for (int v = 0; v < n; v++) {// Iterate through all vertices
+//         if (index[v] == -1) dfs(v);// If not visited, start DFS
+//     }
+//     return comps;
+// }
 
 long long Graph::mst_weight() const {
     return mst_weight_kruskal(*this);
@@ -337,6 +336,17 @@ int Graph::max_flow(int a, int b) const {
         }
     }
     return mf.getMaxFlow(a, b);
+}
+
+/**
+ * @brief Returns the neighbors of a vertex.
+ * @param v Vertex index
+ * @return A reference to the adjacency list of the vertex.
+ * @throws std::out_of_range if the vertex index is invalid.
+ */
+const std::vector<Graph::Edge>& Graph::neighbors(int v) const {
+    validVertex(v);
+    return adj_list[v];
 }
   
 } // namespace graph
