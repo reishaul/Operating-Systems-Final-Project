@@ -1,4 +1,4 @@
-ALG MAXFLOW
+GRAPH
 V 4
 E 5
 0 1 10

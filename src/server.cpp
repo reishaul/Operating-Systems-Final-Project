@@ -1,5 +1,4 @@
 #include "Graph.hpp"// Include the Graph class header
-#include "Digraph.hpp"// Include the Digraph class header
 #include "AlgorithmFactory.hpp"// Include the AlgorithmFactory header
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -13,6 +12,16 @@
 #include <string>
 #include <vector>
 #include "server.hpp"
+#include <thread>//for thread using
+
+//for generate random graph
+#include <random>
+#include <unordered_set>
+
+//for part 9 pipeline
+#include "Pipeline.hpp"
+
+
 
 
 using namespace graph;
@@ -59,24 +68,42 @@ bool writeAll(int fd, const std::string &s) {
  * @param cfd Client file descriptor.
  */
 void handleClient(int cfd) {
+    /**I am using this line to check if the server support multi-threading
+     *if we run two or more requests in two different terminals we can see that both
+     *of the requests are being processed simultaneously and finishing after five seconds
+     *(In single thread mode, the requests would finish one after 5 second and the second after
+     *more 5 seconds and we get 10 seconds for the whole process)
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    */
+
+
     std::string req;
     if (!readAllText(cfd, req)) {
         writeAll(cfd, "ERR READ_FAILED\n");
         return;
     }
 
-    std::string perr;
     int V , E;
     std::istringstream in(req);
-    std::string tag, algo;
+    std::string tag;
 
-    // Read the number of vertices
-    if (!(in >> tag) || tag != "ALG") {
-        writeAll(cfd, "ERR PARSE_FAILED: expected 'ALG <algorithm>'\n");
+    //for part 8 b
+    if (!(in >> tag)) {
+        writeAll(cfd, "ERR PARSE_FAILED: missing request type\n");
         return;
     }
-    if (!(in >> algo) || algo.empty()) {
-        writeAll(cfd, "ERR PARSE_FAILED: invalid algorithm name\n");
+
+    bool randomGraph = false;
+    if (tag == "GRAPH") {
+        //if the client requested a specific graph and continue to read its description
+    }
+
+    else if (tag == "RANDOM") {//if the client requested a random graph
+        randomGraph = true;
+    }
+
+    else {
+        writeAll(cfd, "ERR PARSE_FAILED: expected 'GRAPH' or 'RANDOM'\n");
         return;
     }
 
@@ -100,34 +127,66 @@ void handleClient(int cfd) {
 
   
     Graph G(V);// Create a graph with the specified number of vertices
-   
-    bool withWeight = (algo == "MST" || algo == "MAXFLOW");
+    //bool withWeight = (algo == "MST" || algo == "MAXFLOW");
 
-    for(int i = 0; i < E; ++i) {
-        int u,v,w=1;//default weight is 1
-        if(withWeight){
-            if(!(in>>u>>v>>w)){
+    if(randomGraph){
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dist(0, V-1);
+
+        std::unordered_set<long long> used; // to prevent duplicates
+        std::uniform_int_distribution<> wdist(1, 10);//range of random weights
+
+        for (int i = 0; i < E; ++i) {
+            int u, v;
+            long long key;
+            do {
+                u = dist(gen);
+                v = dist(gen);
+                key = (static_cast<long long>(u) << 32) | v;
+            } while (u == v || used.count(key)); // without self-loops and duplicates
+
+            used.insert(key);
+            G.addEdge(u, v, wdist(gen)); // random weight
+        }
+    }
+    else{
+        for (int i = 0; i < E; ++i) {
+            int u, v, w = 1;
+            if (!(in >> u >> v)) {
                 writeAll(cfd, "ERR PARSE_FAILED: invalid edge line format\n");
                 return;
             }
-            G.addEdge(u, v, w);// Add the edge with weight to the graph
-        }
-        else{
-            if(!(in>>u>>v)){
-                writeAll(cfd, "ERR PARSE_FAILED: invalid edge line format\n");
-                return;
+            if (in.peek() != '\n' && in >> w) {
+                //if there is a weight, read it
             }
-            G.addEdge(u, v);// Add the edge without weight to the graph
+            G.addEdge(u, v, w);
         }
     }
 
+// Pipeline 
 
-    if (auto alg = graph::AlgorithmFactory::create(algo)) {
-        writeAll(cfd, alg->run(G));
-    }
-    else {
-        writeAll(cfd, "ERR UNKNOWN ALGORITHM\n");
-    }  
+    auto job = std::make_shared<graph::Job>();
+    job->g = std::make_shared<Graph>(G);
+    std::future<std::string> fut = job->done.get_future();
+
+    graph::getThreadPool().pushJob(job);
+
+    std::string response = fut.get(); // wait to the algorithms to finish
+    writeAll(cfd, response);
+
+    // std::vector<std::string> algos = {"MST", "MAXFLOW", "HAMILTON","MAXCLIQUE"};
+    // std::ostringstream out;
+
+    // for (auto &a : algos) {
+    //     if (auto alg = graph::AlgorithmFactory::create(a)) {
+    //         out << alg->run(G);
+    //     } else {
+    //         out << "ERR UNKNOWN ALGORITHM " << a << "\n";
+    //     }
+    // }
+
+    // writeAll(cfd, out.str());
 
 }
 

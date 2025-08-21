@@ -3,10 +3,14 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+
 #include <sys/socket.h>
 #include <unistd.h>
+
 #include <iostream>
 #include <cerrno>
+
+#include <thread>//for thread using
 
 static const int PORT = 5555;
 static const int BACKLOG = 16;
@@ -32,14 +36,22 @@ int main() {
     // Main loop to accept and handle client connections
     // Accept connections in a loop and handle each client in the handleClient function
     while (true) {
-        sockaddr_in cli{}; socklen_t clilen = sizeof(cli);// Client address structure
+        sockaddr_in cli{};
+        socklen_t clilen = sizeof(cli);// Client address structure
         int cfd = accept(sfd, (sockaddr*)&cli, &clilen);// Accept a client connection
         if (cfd < 0) {
-            if (errno == EINTR) continue;
-            perror("accept"); break;
+            if (errno == EINTR) continue;// Interrupted system call
+            perror("accept");
+            break;
         }
-        handleClient(cfd);// Handle the client connection
-        close(cfd);// Close the client connection
+        //for thread
+        //this 4 lines are for creating a new thread to handle the client connection
+        std::thread t([cfd]() {
+            handleClient(cfd);
+            close(cfd);
+        });
+        t.detach(); // Run in the background without join
+
     }
 
     close(sfd);// Close the server socket

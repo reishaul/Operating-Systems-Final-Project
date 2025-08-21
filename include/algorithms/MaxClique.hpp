@@ -4,7 +4,7 @@
 
 namespace graph {
 
-// מחזיר את הקליקה המקסימלית שמצאנו בגרף
+// Finds the maximum clique in a graph.
 std::vector<int> find_max_clique(const Graph& G);
 
 }
