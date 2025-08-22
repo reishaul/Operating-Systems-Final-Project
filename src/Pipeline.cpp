@@ -1,10 +1,18 @@
 // Pipeline.cpp
 #include "Pipeline.hpp"
 #include <iostream>
-
 #include <sstream>
 
+//#include <mutex>
+//static std::mutex cout_mutex; // mutex to protect access to std::cout
+
+
 namespace graph {
+
+    std::mutex cout_mutex;
+    std::atomic<size_t> Job::next_id{0};
+
+#define SAFE_COUT(x) do{std::lock_guard<std::mutex> lk(cout_mutex); std::cerr << x << std::endl;} while(0)
 
 // ThreadPool constructor: start all pipeline threads
 ThreadPool::ThreadPool() {
@@ -18,7 +26,6 @@ ThreadPool::ThreadPool() {
 // Active Object class
 void ThreadPool::pushJob(JobPtr job) {
     q_in.push(std::move(job));
-
 } 
 
 /**
@@ -28,33 +35,59 @@ void ThreadPool::pushJob(JobPtr job) {
  * @param out Output job queue.
  */
 void ThreadPool::stageWorker(const std::string& algName, BlockingQueue<JobPtr>& in, BlockingQueue<JobPtr>& out) {
-    auto alg = AlgorithmFactory::create(algName);
-    while (true) {
-        JobPtr job = in.pop();
+    auto alg = AlgorithmFactory::create(algName);//create algorithm instance
+    for (;;) {
+        JobPtr job = in.pop();//get job from input queue
 
-        // Print to see that the Job has been taken and is being worked on
-        std::cout << "[" << algName << "] starting job on thread " 
-                  << std::this_thread::get_id() << std::endl;
-        // Run the algorithm on the job's graph
-        if (alg) {
-            job->result += alg->run(*job->g);
-        } else {
-            job->result += "ERR UNKNOWN ALGORITHM " + algName + "\n";
+        {// Print to see that the Job has been taken and is being worked on
+            std::lock_guard<std::mutex> lk(cout_mutex);
+            std::cerr << "[" << algName << "] starting job " << job->id
+                      << " on thread " << std::this_thread::get_id() << std::endl;
         }
-        out.push(std::move(job));
-        std::cout << "[" << algName << "] running on thread " << std::this_thread::get_id() << std::endl;
+
+        // Run the algorithm on the job's graph
+        std::string result_part;
+        if (alg) {
+            result_part = alg->run(*job->g);
+        } 
+        else {
+            result_part = "ERR UNKNOWN ALGORITHM " + algName + "\n";
+        }
+        
+        // Protect access to shared result
+        {
+            std::lock_guard<std::mutex> lk(job->job_mutex);
+            job->result += result_part;
+        }
+
+        // Lock before writing to result
+        {
+            std::lock_guard<std::mutex> lk(cout_mutex);
+            std::cerr << "[" << algName << "] job " << job->id
+                      << " moving to next stage " << std::endl;
+        }
+
+        out.push(std::move(job));//push job to output queue
     }
 }
 
 /**
- * @brief Sink worker function that processes completed jobs.
+ * @brief Sink worker function that processes completed jobs
  * @param in Input job queue.
  */
 void ThreadPool::sinkWorker(BlockingQueue<JobPtr>& in) {
-    while (true) {
-        JobPtr job = in.pop();
-        job->done.set_value(std::move(job->result));
-    }
-}
+        for(;;) {
 
+            JobPtr job = in.pop();
+
+            SAFE_COUT("sinkWorker: processing job " << job->id);
+
+            {
+                std::lock_guard<std::mutex> lk(job->job_mutex);
+                job->completed.store(true);
+                job->cv.notify_one();
+            }
+            SAFE_COUT("sinkWorker: notified job " << job->id);
+        }
+    }
 }

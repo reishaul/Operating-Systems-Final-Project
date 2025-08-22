@@ -131,8 +131,8 @@ void handleClient(int cfd) {
 
     if(randomGraph){
         std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> dist(0, V-1);
+        std::mt19937 gen(rd());// Create random number generator
+        std::uniform_int_distribution<> dist(0, V-1);// Create uniform distribution for vertex selection in range [0, V-1]
 
         std::unordered_set<long long> used; // to prevent duplicates
         std::uniform_int_distribution<> wdist(1, 10);//range of random weights
@@ -164,29 +164,29 @@ void handleClient(int cfd) {
         }
     }
 
-// Pipeline 
+// For Pipeline 
+    // Create shared_ptr directly without intermediate copy
+    auto job_shared = std::make_shared<graph::Job>();
+    job_shared->g = std::make_shared<Graph>(std::move(G));
 
-    auto job = std::make_shared<graph::Job>();
-    job->g = std::make_shared<Graph>(G);
-    std::future<std::string> fut = job->done.get_future();
+    // Store weak_ptr to avoid circular dependencies and race conditions
+    std::weak_ptr<graph::Job> job_weak = job_shared;
 
-    graph::getThreadPool().pushJob(job);
+    graph::getThreadPool().pushJob(std::move(job_shared));
 
-    std::string response = fut.get(); // wait to the algorithms to finish
-    writeAll(cfd, response);
-
-    // std::vector<std::string> algos = {"MST", "MAXFLOW", "HAMILTON","MAXCLIQUE"};
-    // std::ostringstream out;
-
-    // for (auto &a : algos) {
-    //     if (auto alg = graph::AlgorithmFactory::create(a)) {
-    //         out << alg->run(G);
-    //     } else {
-    //         out << "ERR UNKNOWN ALGORITHM " << a << "\n";
-    //     }
-    // }
-
-    // writeAll(cfd, out.str());
+    // Use weak_ptr to get access only when needed
+    if (auto job_ptr = job_weak.lock()) {
+        std::unique_lock<std::mutex> lk(job_ptr->job_mutex);
+        job_ptr->cv.wait(lk, [&job_ptr]{ return job_ptr->completed.load(); });
+        
+        // Get response while still holding the lock
+        std::string response = job_ptr->result;
+        lk.unlock();
+        
+        writeAll(cfd, response);//send response back to client
+    } else {
+        writeAll(cfd, "ERR JOB_LOST\n");
+    }
 
 }
 
