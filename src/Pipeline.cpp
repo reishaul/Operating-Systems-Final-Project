@@ -1,18 +1,14 @@
-// Pipeline.cpp
 #include "Pipeline.hpp"
 #include <iostream>
 #include <sstream>
 
-//#include <mutex>
-//static std::mutex cout_mutex; // mutex to protect access to std::cout
-
 
 namespace graph {
+    extern std::atomic<bool> server_running{true};
+    std::mutex cout_mutex;// mutex for console output
+    std::atomic<size_t> Job::next_id{0};// for unique job identification
 
-    std::mutex cout_mutex;
-    std::atomic<size_t> Job::next_id{0};
-
-#define SAFE_COUT(x) do{std::lock_guard<std::mutex> lk(cout_mutex); std::cerr << x << std::endl;} while(0)
+#define SAFE_COUT(x) do{std::lock_guard<std::mutex> lk(cout_mutex); std::cerr << x << std::endl;} while(0)// safe console output
 
 // ThreadPool constructor: start all pipeline threads
 ThreadPool::ThreadPool() {
@@ -24,20 +20,25 @@ ThreadPool::ThreadPool() {
 }
 
 // Active Object class
+/*
+ * @brief Pushes a 'job' into the input queue.
+ * @param job The job to be pushed
+ */
 void ThreadPool::pushJob(JobPtr job) {
     q_in.push(std::move(job));
 } 
 
 /**
- * @brief Stage worker function that processes jobs for a specific algorithm.
+ * @brief Stage worker function that processes jobs for a specific algorithm
  * @param algName Name of the algorithm to process.
- * @param in Input job queue.
+ * @param in Input job queue
  * @param out Output job queue.
  */
 void ThreadPool::stageWorker(const std::string& algName, BlockingQueue<JobPtr>& in, BlockingQueue<JobPtr>& out) {
     auto alg = AlgorithmFactory::create(algName);//create algorithm instance
-    for (;;) {
+    while (server_running.load()) {
         JobPtr job = in.pop();//get job from input queue
+        if(!job) break;//new
 
         {// Print to see that the Job has been taken and is being worked on
             std::lock_guard<std::mutex> lk(cout_mutex);
@@ -56,7 +57,7 @@ void ThreadPool::stageWorker(const std::string& algName, BlockingQueue<JobPtr>& 
         
         // Protect access to shared result
         {
-            std::lock_guard<std::mutex> lk(job->job_mutex);
+            std::lock_guard<std::mutex> lk(job->job_mutex);//lock_guard is used to protect access to job data
             job->result += result_part;
         }
 
@@ -76,16 +77,17 @@ void ThreadPool::stageWorker(const std::string& algName, BlockingQueue<JobPtr>& 
  * @param in Input job queue.
  */
 void ThreadPool::sinkWorker(BlockingQueue<JobPtr>& in) {
-        for(;;) {
+        while (server_running.load()) {
 
             JobPtr job = in.pop();
+            if(!job) break;//new
 
-            SAFE_COUT("sinkWorker: processing job " << job->id);
+            SAFE_COUT("sinkWorker: processing job " << job->id);//safe console output
 
             {
-                std::lock_guard<std::mutex> lk(job->job_mutex);
-                job->completed.store(true);
-                job->cv.notify_one();
+                std::lock_guard<std::mutex> lk(job->job_mutex);//lock_guard is used to protect access to job data
+                job->completed.store(true);// mark job as completed
+                job->cv.notify_one();// notify waiting threads
             }
             SAFE_COUT("sinkWorker: notified job " << job->id);
         }

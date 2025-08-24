@@ -25,7 +25,7 @@
 
 
 using namespace graph;
-static const int PORT = 5555;// Define the port number for the server
+static const int PORT = 6666;// Define the port number for the server
 // Define the maximum number of pending connections in the queue
 static const int BACKLOG = 16;
 
@@ -76,16 +76,16 @@ void handleClient(int cfd) {
     std::this_thread::sleep_for(std::chrono::seconds(5));
     */
 
+    try {
+        std::string req;
+        if (!readAllText(cfd, req)) {
+            writeAll(cfd, "ERR READ_FAILED\n");
+            return;
+        }
 
-    std::string req;
-    if (!readAllText(cfd, req)) {
-        writeAll(cfd, "ERR READ_FAILED\n");
-        return;
-    }
-
-    int V , E;
+    int V , E;//vertex and edges
     std::istringstream in(req);
-    std::string tag;
+    std::string tag;//
 
     //for part 8 b
     if (!(in >> tag)) {
@@ -94,6 +94,8 @@ void handleClient(int cfd) {
     }
 
     bool randomGraph = false;
+
+    //conditions to identify graph type read its description and check for specific properties and correctness
     if (tag == "GRAPH") {
         //if the client requested a specific graph and continue to read its description
     }
@@ -160,6 +162,19 @@ void handleClient(int cfd) {
             if (in.peek() != '\n' && in >> w) {
                 //if there is a weight, read it
             }
+            
+            // Check for negative weights
+            if (w < 0) {
+                writeAll(cfd, "ERR PARSE_FAILED: negative edge weights are not allowed\n");
+                return;
+            }
+            
+            // Check for vertex index validity
+            if (u < 0 || u >= V || v < 0 || v >= V) {
+                writeAll(cfd, "ERR PARSE_FAILED: vertex index out of range\n");
+                return;
+            }
+            
             G.addEdge(u, v, w);
         }
     }
@@ -186,6 +201,14 @@ void handleClient(int cfd) {
         writeAll(cfd, response);//send response back to client
     } else {
         writeAll(cfd, "ERR JOB_LOST\n");
+    }
+
+    } catch (const std::invalid_argument& e) {
+        writeAll(cfd, "ERR INVALID_ARGUMENT: " + std::string(e.what()) + "\n");
+    } catch (const std::out_of_range& e) {
+        writeAll(cfd, "ERR OUT_OF_RANGE: " + std::string(e.what()) + "\n");
+    } catch (const std::exception& e) {
+        writeAll(cfd, "ERR EXCEPTION: " + std::string(e.what()) + "\n");
     }
 
 }

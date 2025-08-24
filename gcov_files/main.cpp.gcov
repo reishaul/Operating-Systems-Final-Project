@@ -1,0 +1,145 @@
+        -:    0:Source:src/main.cpp
+        -:    0:Graph:src/main.gcno
+        -:    0:Data:src/main.gcda
+        -:    0:Runs:1
+        -:    1://Rei Shaul E-mail: reishaul1@gmail.com
+        -:    2:#include "server.hpp"
+        -:    3:
+        -:    4:#include <arpa/inet.h>
+        -:    5:#include <netinet/in.h>
+        -:    6:
+        -:    7:#include <sys/socket.h>
+        -:    8:#include <unistd.h>
+        -:    9:
+        -:   10:#include <iostream>
+        -:   11:#include <cerrno>
+        -:   12:
+        -:   13:#include <thread>//for thread using
+        -:   14:#include <vector>
+        -:   15:#include <atomic>
+        -:   16:#include <algorithm> // for std::remove_if
+        -:   17:#include <signal.h> // for signal handling
+        -:   18:#include <csignal> // for signal handling
+        -:   19:#include <chrono>
+        -:   20:#include <string>
+        -:   21:
+        -:   22:#include <Pipeline.hpp>
+        -:   23:
+        -:   24:static const int PORT = 5555;
+        -:   25:static const int BACKLOG = 16;
+        -:   26:
+        -:   27:std::atomic<bool> server_running{true};//variable to control server status
+        -:   28:
+        -:   29:// Signal handler for graceful shutdown
+    #####:   30:void signalHandler(int signal) {
+    #####:   31:    if (signal == SIGINT || signal == SIGTERM) {
+    #####:   32:        std::cout << "\nReceived shutdown signal. Shutting down server gracefully..." << std::endl;
+    #####:   33:        server_running.store(false);
+        -:   34:    }
+    #####:   35:}
+        -:   36:
+        -:   37:// Function to handle terminal input in a separate thread
+        1:   38:void handleTerminalInput() {
+        1:   39:    std::string input;
+        4:   40:    while (server_running.load()) {
+        3:   41:        if (std::getline(std::cin, input)) {
+        3:   42:            if (input == "exit" || input == "quit") {
+        1:   43:                std::cout << "Shutting down server gracefully..." << std::endl;
+        1:   44:                server_running = false;
+        -:   45:
+        1:   46:                graph::getThreadPool().shutdown();
+        1:   47:                break;
+        -:   48:            } 
+        2:   49:            else if (input == "help") {
+        1:   50:                std::cout << "Available commands: exit, quit, status, help" << std::endl;
+        -:   51:            } 
+        1:   52:            else if (!input.empty()) {
+        1:   53:                std::cout << "Unknown command: '" << input << "'. Type 'help' for available commands." << std::endl;
+        -:   54:            }
+        -:   55:        }
+        -:   56:        
+        -:   57:        // Small delay to prevent busy waiting
+        -:   58:        //std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        -:   59:    }
+        1:   60:}
+        -:   61:
+        1:   62:int main() {
+        -:   63:    // Set up signal handlers for graceful shutdown
+        1:   64:    signal(SIGINT, signalHandler);
+        1:   65:    signal(SIGTERM, signalHandler);
+        -:   66:    
+        1:   67:    int sfd = ::socket(AF_INET, SOCK_STREAM, 0);// Create a socket for the server(ipv4, TCP)
+       1*:   68:    if (sfd < 0) { perror("socket"); return 1; }
+        -:   69:
+        1:   70:    int opt = 1;
+        1:   71:    setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));// Set socket options to reuse the address
+        -:   72:
+        -:   73:    // Set up the server address structure
+        1:   74:    sockaddr_in addr{};// Server address 
+        1:   75:    addr.sin_family = AF_INET;// IPv4 address family
+        1:   76:    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        1:   77:    addr.sin_port = htons(PORT);
+        -:   78:
+       1*:   79:    if (bind(sfd, (sockaddr*)&addr, sizeof(addr)) < 0) { perror("bind"); return 1; }// Bind the socket to the address and port
+       1*:   80:    if (listen(sfd, BACKLOG) < 0) { perror("listen"); return 1; }// Listen for incoming connections
+        -:   81:
+        1:   82:    std::cerr << "Server listening on port " << PORT << " ...\n";
+        1:   83:    std::cout << "Type 'exit' to shutdown gracefully, or use Ctrl+C" << std::endl;
+        -:   84:
+        -:   85:    // Start terminal input handler thread
+        1:   86:    std::thread input_thread(handleTerminalInput);
+        -:   87:
+        1:   88:    std::vector<std::thread> threads;
+        -:   89:
+        -:   90:    // Main loop to accept and handle client connections
+      436:   91:    while (server_running.load()) {
+      435:   92:        sockaddr_in cli{};
+      435:   93:        socklen_t clilen = sizeof(cli);// Client address structure
+        -:   94:        
+        -:   95:        // Set timeout for accept to periodically check server_running
+        -:   96:        struct timeval timeout;
+      435:   97:        timeout.tv_sec = 1;
+      435:   98:        timeout.tv_usec = 0;
+      435:   99:        setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        -:  100:        
+      435:  101:        int cfd = accept(sfd, (sockaddr*)&cli, &clilen);// Accept a client connection
+      435:  102:        if (cfd < 0) {
+     403*:  103:            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+      403:  104:                continue;// Timeout או interrupt - בדוק שוב את server_running
+        -:  105:            }
+    #####:  106:            if (server_running.load()) {
+    #####:  107:                perror("accept");
+        -:  108:            }
+    #####:  109:            break;
+        -:  110:        }
+        -:  111:        
+       32:  112:        if (!server_running.load()) {
+    #####:  113:            close(cfd);
+    #####:  114:            break;
+        -:  115:        }
+        -:  116:        
+        -:  117:        // Create thread to handle client
+       32:  118:        threads.emplace_back([cfd]() {
+       32:  119:            handleClient(cfd);
+       32:  120:            close(cfd);
+       32:  121:        });
+        -:  122:    }
+        -:  123:
+        1:  124:    std::cout << "Shutting down server..." << std::endl;
+        -:  125:    
+        -:  126:    // Join all threads before exiting
+       33:  127:    for (auto& t : threads) {
+       32:  128:        if (t.joinable()) t.join();
+        -:  129:    }
+        -:  130:    
+        -:  131:    // Join input thread
+        1:  132:    if (input_thread.joinable()) {
+        1:  133:        input_thread.join();
+        -:  134:    }
+        -:  135:
+        1:  136:    close(sfd);// Close the server socket
+        -:  137:    
+        1:  138:    std::cout << "Server shutdown complete." << std::endl;
+        -:  139:    
+        1:  140:    return 0;
+        1:  141:}

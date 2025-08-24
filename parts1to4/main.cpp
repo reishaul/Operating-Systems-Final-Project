@@ -5,7 +5,7 @@
 #include <random>
 #include <ctime>
 #include <unistd.h>  // For getopt  
-#include "Graph.hpp"
+#include "graph.hpp"
 
 int main(int argc, char* argv[]) {
     int num_vertices = 0;

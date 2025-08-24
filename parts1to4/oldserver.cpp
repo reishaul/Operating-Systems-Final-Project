@@ -10,6 +10,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <atomic>
+#include <thread>//for thread using
+
 
 
 using namespace graph;
@@ -17,6 +20,27 @@ static const int PORT = 5555;// Define the port number for the server
 // Define the maximum number of pending connections in the queue
 static const int BACKLOG = 16;
 
+// Global flag for graceful shutdown
+std::atomic<bool> server_running{true};
+
+// Function to handle terminal input
+void handleTerminalInput() {
+    std::string input;
+    while (server_running.load()) {
+        std::getline(std::cin, input);
+        
+        if (input == "exit" || input == "quit") {
+            std::cout << "Shutting down server gracefully..." << std::endl;
+            server_running.store(false);
+            break;
+        } else if (input == "status") {
+            std::cout << "Server is running on port " << PORT << std::endl;
+        } else if (!input.empty()) {
+            std::cout << "Unknown command: " << input << std::endl;
+            std::cout << "Available commands: exit, quit, status" << std::endl;
+        }
+    }
+}
 
 /*
     * Reads all text from a file descriptor until EOF.
@@ -124,6 +148,7 @@ static void handleClient(int cfd) {
 }
 
 int main() {
+
     int sfd = ::socket(AF_INET, SOCK_STREAM, 0);// Create a socket for the server(ipv4, TCP)
     if (sfd < 0) { perror("socket"); return 1; }
 
@@ -140,20 +165,42 @@ int main() {
     if (listen(sfd, BACKLOG) < 0) { perror("listen"); return 1; }// Listen for incoming connections
 
     std::cerr << "Server listening on port " << PORT << " ...\n";
+    std::cerr << "Type exit to stop the server gracefully\n";
+
+    // Create thread to handle terminal input
+    std::thread terminal_thread(handleTerminalInput);
+    terminal_thread.detach();
 
     // Main loop to accept and handle client connections
     // Accept connections in a loop and handle each client in the handleClient function
-    while (true) {
-        sockaddr_in cli{}; socklen_t clilen = sizeof(cli);// Client address structure
+    while (server_running.load()) {
+        sockaddr_in cli{}; 
+        socklen_t clilen = sizeof(cli);// Client address structure
+
+        struct timeval timeout;
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+        setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
         int cfd = accept(sfd, (sockaddr*)&cli, &clilen);// Accept a client connection
         if (cfd < 0) {
-            if (errno == EINTR) continue;
-            perror("accept"); break;
+            if (errno == EINTR|| errno == EAGAIN || errno == EWOULDBLOCK){
+                continue;// Timeout or interrupt - check server_running again
+            } 
+            if(server_running.load()){
+                perror("accept");
+            }
+            break;
+        }
+        if(!server_running.load()){
+            close(cfd);
+            break;
         }
         handleClient(cfd);// Handle the client connection
         close(cfd);// Close the client connection
     }
 
     close(sfd);// Close the server socket
+    std::cerr << "Server shut down gracefully.\n";
     return 0;
 }

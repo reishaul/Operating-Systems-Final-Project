@@ -1,0 +1,95 @@
+        -:    0:Source:src/Pipeline.cpp
+        -:    0:Graph:src/Pipeline.gcno
+        -:    0:Data:src/Pipeline.gcda
+        -:    0:Runs:1
+        -:    1:#include "Pipeline.hpp"
+        -:    2:#include <iostream>
+        -:    3:#include <sstream>
+        -:    4:
+        -:    5:
+        -:    6:namespace graph {
+        -:    7:    extern std::atomic<bool> server_running{true};
+        -:    8:    std::mutex cout_mutex;// mutex for console output
+        -:    9:    std::atomic<size_t> Job::next_id{0};// for unique job identification
+        -:   10:
+        -:   11:#define SAFE_COUT(x) do{std::lock_guard<std::mutex> lk(cout_mutex); std::cerr << x << std::endl;} while(0)// safe console output
+        -:   12:
+        -:   13:// ThreadPool constructor: start all pipeline threads
+        1:   14:ThreadPool::ThreadPool() {
+        1:   15:    std::thread(&ThreadPool::stageWorker, this, "MST", std::ref(q_in), std::ref(q_mst)).detach();
+        1:   16:    std::thread(&ThreadPool::stageWorker, this, "MAXFLOW", std::ref(q_mst), std::ref(q_maxflow)).detach();
+        1:   17:    std::thread(&ThreadPool::stageWorker, this, "HAMILTON", std::ref(q_maxflow), std::ref(q_ham)).detach();
+        1:   18:    std::thread(&ThreadPool::stageWorker, this, "MAXCLIQUE", std::ref(q_ham), std::ref(q_clique)).detach();
+        1:   19:    std::thread(&ThreadPool::sinkWorker, this, std::ref(q_clique)).detach();
+        1:   20:}
+        -:   21:
+        -:   22:// Active Object class
+       18:   23:void ThreadPool::pushJob(JobPtr job) {
+       18:   24:    q_in.push(std::move(job));
+       18:   25:} 
+        -:   26:
+        -:   27:/**
+        -:   28: * @brief Stage worker function that processes jobs for a specific algorithm
+        -:   29: * @param algName Name of the algorithm to process.
+        -:   30: * @param in Input job queue
+        -:   31: * @param out Output job queue.
+        -:   32: */
+        4:   33:void ThreadPool::stageWorker(const std::string& algName, BlockingQueue<JobPtr>& in, BlockingQueue<JobPtr>& out) {
+        4:   34:    auto alg = AlgorithmFactory::create(algName);//create algorithm instance
+       76:   35:    while (server_running.load()) {
+       76:   36:        JobPtr job = in.pop();//get job from input queue
+       76:   37:        if(!job) break;//new
+        -:   38:
+        -:   39:        {// Print to see that the Job has been taken and is being worked on
+       72:   40:            std::lock_guard<std::mutex> lk(cout_mutex);
+       72:   41:            std::cerr << "[" << algName << "] starting job " << job->id
+       72:   42:                      << " on thread " << std::this_thread::get_id() << std::endl;
+       72:   43:        }
+        -:   44:
+        -:   45:        // Run the algorithm on the job's graph
+       72:   46:        std::string result_part;
+       72:   47:        if (alg) {
+       72:   48:            result_part = alg->run(*job->g);
+        -:   49:        } 
+        -:   50:        else {
+    #####:   51:            result_part = "ERR UNKNOWN ALGORITHM " + algName + "\n";
+        -:   52:        }
+        -:   53:        
+        -:   54:        // Protect access to shared result
+        -:   55:        {
+       72:   56:            std::lock_guard<std::mutex> lk(job->job_mutex);//lock_guard is used to protect access to job data
+       72:   57:            job->result += result_part;
+       72:   58:        }
+        -:   59:
+        -:   60:        // Lock before writing to result
+        -:   61:        {
+       72:   62:            std::lock_guard<std::mutex> lk(cout_mutex);
+       72:   63:            std::cerr << "[" << algName << "] job " << job->id
+       72:   64:                      << " moving to next stage " << std::endl;
+       72:   65:        }
+        -:   66:
+       72:   67:        out.push(std::move(job));//push job to output queue
+       76:   68:    }
+        4:   69:}
+        -:   70:
+        -:   71:/**
+        -:   72: * @brief Sink worker function that processes completed jobs
+        -:   73: * @param in Input job queue.
+        -:   74: */
+        1:   75:void ThreadPool::sinkWorker(BlockingQueue<JobPtr>& in) {
+       19:   76:        while (server_running.load()) {
+        -:   77:
+       19:   78:            JobPtr job = in.pop();
+       19:   79:            if(!job) break;//new
+        -:   80:
+       18:   81:            SAFE_COUT("sinkWorker: processing job " << job->id);//safe console output
+        -:   82:
+        -:   83:            {
+       18:   84:                std::lock_guard<std::mutex> lk(job->job_mutex);//lock_guard is used to protect access to job data
+       18:   85:                job->completed.store(true);// mark job as completed
+       18:   86:                job->cv.notify_one();// notify waiting threads
+       18:   87:            }
+       18:   88:            SAFE_COUT("sinkWorker: notified job " << job->id);
+       19:   89:        }
+        1:   90:    }
+        -:   91:}

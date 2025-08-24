@@ -1,0 +1,220 @@
+        -:    0:Source:src/server.cpp
+        -:    0:Graph:src/server.gcno
+        -:    0:Data:src/server.gcda
+        -:    0:Runs:1
+        -:    1:#include "Graph.hpp"// Include the Graph class header
+        -:    2:#include "AlgorithmFactory.hpp"// Include the AlgorithmFactory header
+        -:    3:#include <arpa/inet.h>
+        -:    4:#include <netinet/in.h>
+        -:    5:#include <sys/socket.h>
+        -:    6:#include <unistd.h>
+        -:    7:
+        -:    8:#include <cerrno>// For errno
+        -:    9:#include <cstring>
+        -:   10:#include <iostream>
+        -:   11:#include <sstream>
+        -:   12:#include <string>
+        -:   13:#include <vector>
+        -:   14:#include "server.hpp"
+        -:   15:#include <thread>//for thread using
+        -:   16:
+        -:   17://for generate random graph
+        -:   18:#include <random>
+        -:   19:#include <unordered_set>
+        -:   20:
+        -:   21://for part 9 pipeline
+        -:   22:#include "Pipeline.hpp"
+        -:   23:
+        -:   24:
+        -:   25:
+        -:   26:
+        -:   27:using namespace graph;
+        -:   28:static const int PORT = 6666;// Define the port number for the server
+        -:   29:// Define the maximum number of pending connections in the queue
+        -:   30:static const int BACKLOG = 16;
+        -:   31:
+        -:   32:
+        -:   33:/*
+        -:   34:    * Reads all text from a file descriptor until EOF.
+        -:   35:    * Returns true on success, false on failure.
+        -:   36:    * If reading fails, sets err to an error message.
+        -:   37:    * The file descriptor must be open for reading.
+        -:   38:*/
+       32:   39:bool readAllText(int fd, std::string &out) {
+        -:   40:    char buf[4096];// Buffer for reading data
+        -:   41:    ssize_t n;
+       32:   42:    out.clear();
+       64:   43:    while ((n = ::read(fd, buf, sizeof(buf))) > 0) {
+       32:   44:        out.append(buf, buf + n);// Append the read data to the output string
+        -:   45:    }
+       32:   46:    return (n >= 0);
+        -:   47:}
+        -:   48:
+        -:   49:/*
+        -:   50:    * Writes a string to a file descriptor.
+        -:   51:    * Returns true on success, false on failure.
+        -:   52:    * The file descriptor must be open for writing.
+        -:   53:*/
+       32:   54:bool writeAll(int fd, const std::string &s) {
+       32:   55:    size_t sent = 0;// Number of bytes sent
+       64:   56:    while (sent < s.size()) {
+       32:   57:        ssize_t n = ::write(fd, s.data() + sent, s.size() - sent);// Write data to the file descriptor
+      32*:   58:        if (n <= 0) return false;
+       32:   59:        sent += static_cast<size_t>(n);// Update the number of bytes sent
+        -:   60:    }
+       32:   61:    return true;
+        -:   62:}
+        -:   63:
+        -:   64:/**
+        -:   65: * @brief Handles a client connection
+        -:   66: * Reads the graph from the client, checks for an Eulerian cycle,
+        -:   67: * and sends the result back to the client.
+        -:   68: * @param cfd Client file descriptor.
+        -:   69: */
+       32:   70:void handleClient(int cfd) {
+        -:   71:    /**I am using this line to check if the server support multi-threading
+        -:   72:     *if we run two or more requests in two different terminals we can see that both
+        -:   73:     *of the requests are being processed simultaneously and finishing after five seconds
+        -:   74:     *(In single thread mode, the requests would finish one after 5 second and the second after
+        -:   75:     *more 5 seconds and we get 10 seconds for the whole process)
+        -:   76:    std::this_thread::sleep_for(std::chrono::seconds(5));
+        -:   77:    */
+        -:   78:
+        -:   79:    try {
+       32:   80:        std::string req;
+       32:   81:        if (!readAllText(cfd, req)) {
+    #####:   82:            writeAll(cfd, "ERR READ_FAILED\n");
+    #####:   83:            return;
+        -:   84:        }
+        -:   85:
+        -:   86:    int V , E;//vertex and edges
+       32:   87:    std::istringstream in(req);
+       32:   88:    std::string tag;//
+        -:   89:
+        -:   90:    //for part 8 b
+       32:   91:    if (!(in >> tag)) {
+        1:   92:        writeAll(cfd, "ERR PARSE_FAILED: missing request type\n");
+        1:   93:        return;
+        -:   94:    }
+        -:   95:
+       31:   96:    bool randomGraph = false;
+        -:   97:
+        -:   98:    //conditions to identify graph type and read its description
+       31:   99:    if (tag == "GRAPH") {
+        -:  100:        //if the client requested a specific graph and continue to read its description
+        -:  101:    }
+        -:  102:
+       14:  103:    else if (tag == "RANDOM") {//if the client requested a random graph
+       13:  104:        randomGraph = true;
+        -:  105:    }
+        -:  106:
+        -:  107:    else {
+        1:  108:        writeAll(cfd, "ERR PARSE_FAILED: expected 'GRAPH' or 'RANDOM'\n");
+        1:  109:        return;
+        -:  110:    }
+        -:  111:
+       30:  112:    if (!(in >> tag) || tag != "V") {
+        1:  113:        writeAll(cfd, "ERR PARSE_FAILED: expected 'V <num_vertices>'\n");
+        1:  114:        return;
+        -:  115:    }
+       29:  116:    if (!(in >> V) || V <= 0) {
+        4:  117:        writeAll(cfd, "ERR PARSE_FAILED: invalid vertex count\n");
+        4:  118:        return;
+        -:  119:    }
+        -:  120:
+       25:  121:    if (!(in >> tag) || tag != "E") {
+        1:  122:        writeAll(cfd, "ERR PARSE_FAILED: expected 'E <num_edges>'\n");
+        1:  123:        return;
+        -:  124:    }
+       24:  125:    if (!(in >> E) || E < 0) {
+        1:  126:        writeAll(cfd, "ERR PARSE_FAILED: invalid edge count\n");
+        1:  127:        return;
+        -:  128:    }
+        -:  129:
+        -:  130:  
+       23:  131:    Graph G(V);// Create a graph with the specified number of vertices
+        -:  132:    //bool withWeight = (algo == "MST" || algo == "MAXFLOW");
+        -:  133:
+       23:  134:    if(randomGraph){
+       13:  135:        std::random_device rd;
+       13:  136:        std::mt19937 gen(rd());// Create random number generator
+       13:  137:        std::uniform_int_distribution<> dist(0, V-1);// Create uniform distribution for vertex selection in range [0, V-1]
+        -:  138:
+       13:  139:        std::unordered_set<long long> used; // to prevent duplicates
+       13:  140:        std::uniform_int_distribution<> wdist(1, 10);//range of random weights
+        -:  141:
+      208:  142:        for (int i = 0; i < E; ++i) {
+        -:  143:            int u, v;
+        -:  144:            long long key;
+        -:  145:            do {
+      243:  146:                u = dist(gen);
+      243:  147:                v = dist(gen);
+      243:  148:                key = (static_cast<long long>(u) << 32) | v;
+      243:  149:            } while (u == v || used.count(key)); // without self-loops and duplicates
+        -:  150:
+      195:  151:            used.insert(key);
+      195:  152:            G.addEdge(u, v, wdist(gen)); // random weight
+        -:  153:        }
+       13:  154:    }
+        -:  155:    else{
+       27:  156:        for (int i = 0; i < E; ++i) {
+       22:  157:            int u, v, w = 1;
+       22:  158:            if (!(in >> u >> v)) {
+        2:  159:                writeAll(cfd, "ERR PARSE_FAILED: invalid edge line format\n");
+        5:  160:                return;
+        -:  161:            }
+       20:  162:            if (in.peek() != '\n' && in >> w) {
+        -:  163:                //if there is a weight, read it
+        -:  164:            }
+        -:  165:            
+        -:  166:            // Check for negative weights
+       20:  167:            if (w < 0) {
+        1:  168:                writeAll(cfd, "ERR PARSE_FAILED: negative edge weights are not allowed\n");
+        1:  169:                return;
+        -:  170:            }
+        -:  171:            
+        -:  172:            // Check for vertex index validity
+       19:  173:            if (u < 0 || u >= V || v < 0 || v >= V) {
+        2:  174:                writeAll(cfd, "ERR PARSE_FAILED: vertex index out of range\n");
+        2:  175:                return;
+        -:  176:            }
+        -:  177:            
+       17:  178:            G.addEdge(u, v, w);
+        -:  179:        }
+        -:  180:    }
+        -:  181:
+        -:  182:// For Pipeline 
+        -:  183:    // Create shared_ptr directly without intermediate copy
+       18:  184:    auto job_shared = std::make_shared<graph::Job>();
+       18:  185:    job_shared->g = std::make_shared<Graph>(std::move(G));
+        -:  186:
+        -:  187:    // Store weak_ptr to avoid circular dependencies and race conditions
+       18:  188:    std::weak_ptr<graph::Job> job_weak = job_shared;
+        -:  189:
+       18:  190:    graph::getThreadPool().pushJob(std::move(job_shared));
+        -:  191:
+        -:  192:    // Use weak_ptr to get access only when needed
+       18:  193:    if (auto job_ptr = job_weak.lock()) {
+       18:  194:        std::unique_lock<std::mutex> lk(job_ptr->job_mutex);
+       54:  195:        job_ptr->cv.wait(lk, [&job_ptr]{ return job_ptr->completed.load(); });
+        -:  196:        
+        -:  197:        // Get response while still holding the lock
+       18:  198:        std::string response = job_ptr->result;
+       18:  199:        lk.unlock();
+        -:  200:        
+       18:  201:        writeAll(cfd, response);//send response back to client
+       18:  202:    } else {
+    #####:  203:        writeAll(cfd, "ERR JOB_LOST\n");
+       18:  204:    }
+        -:  205:
+       65:  206:    } catch (const std::invalid_argument& e) {
+    =====:  207:        writeAll(cfd, "ERR INVALID_ARGUMENT: " + std::string(e.what()) + "\n");
+    =====:  208:    } catch (const std::out_of_range& e) {
+    =====:  209:        writeAll(cfd, "ERR OUT_OF_RANGE: " + std::string(e.what()) + "\n");
+    =====:  210:    } catch (const std::exception& e) {
+    =====:  211:        writeAll(cfd, "ERR EXCEPTION: " + std::string(e.what()) + "\n");
+    =====:  212:    }
+        -:  213:
+        -:  214:}
+        -:  215:
+        -:  216:

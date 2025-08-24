@@ -1,0 +1,87 @@
+        -:    0:Source:src/algorithms/MaxClique.cpp
+        -:    0:Graph:src/algorithms/MaxClique.gcno
+        -:    0:Data:src/algorithms/MaxClique.gcda
+        -:    0:Runs:1
+        -:    1:#include "algorithms/MaxClique.hpp"
+        -:    2:#include <algorithm>
+        -:    3:
+        -:    4:namespace graph {
+        -:    5:
+        -:    6:/**
+        -:    7: * @brief Checks if two vertices are neighbors in the graph.
+        -:    8: * @param G The graph
+        -:    9: * @param u The first vertex.
+        -:   10: * @param v The second vertex
+        -:   11: * @return true if u and v are neighbors, false otherwise.
+        -:   12: */
+      387:   13:static bool isNeighbor(const Graph& G, int u, int v) {
+     1536:   14:    for (auto [nbr, w] : G.neighbors(u)) {
+     1222:   15:        if (nbr == v) return true;
+        -:   16:    }
+      314:   17:    return false;
+        -:   18:}
+        -:   19:
+        -:   20:/**
+        -:   21: * @brief Implements the Bron-Kerbosch algorithm for finding maximal cliques.
+        -:   22: * @param G The graph
+        -:   23: * @param R The current clique
+        -:   24: * @param P The candidates for the next vertex to add to the clique.
+        -:   25: * @param X The vertices that have already been considered.
+        -:   26: * @param bestClique The best clique found so far
+        -:   27: */
+      332:   28:static void bronKerbosch(const Graph& G,
+        -:   29:                         std::vector<int> R,
+        -:   30:                         std::vector<int> P,
+        -:   31:                         std::vector<int> X,
+        -:   32:                         std::vector<int>& bestClique) {
+      332:   33:    if (P.empty() && X.empty()) {// Base case: no more candidates or excluded vertices
+      155:   34:        if (R.size() > bestClique.size()) {// Found a new best clique
+       24:   35:            bestClique = R;
+        -:   36:        }
+      155:   37:        return;
+        -:   38:    }
+        -:   39:
+      177:   40:    int u = -1;// Pivot
+      177:   41:    if (!P.empty()) u = P[0];// Choose a pivot from P
+       36:   42:    else if (!X.empty()) u = X[0];// or from X
+        -:   43:
+      177:   44:    std::vector<int> PwithoutNeighbors;//vector that contains all candidates not connected to the pivot
+      564:   45:    for (int v : P) {//go over the candidates and check if they are connected to the pivot
+      387:   46:        if (u == -1 || !isNeighbor(G, u, v)) {
+      314:   47:            PwithoutNeighbors.push_back(v);
+        -:   48:        }
+        -:   49:    }
+        -:   50:
+      491:   51:    for (int v : PwithoutNeighbors) {//go over the candidates not connected to the pivot
+      314:   52:        std::vector<int> Rnext = R;//vector that contains the current clique plus the new vertex
+      314:   53:        Rnext.push_back(v);//insert new vertex into the current clique
+        -:   54:
+      314:   55:        std::vector<int> Pnext, Xnext;
+     1335:   56:        for (auto [w, _] : G.neighbors(v)) {//go over the neighbors of the new vertex
+     1021:   57:            if (std::find(P.begin(), P.end(), w) != P.end())//if w is in P
+      237:   58:                Pnext.push_back(w);
+     1021:   59:            if (std::find(X.begin(), X.end(), w) != X.end())//if w is in X
+      103:   60:                Xnext.push_back(w);
+        -:   61:        }
+        -:   62:
+      314:   63:        bronKerbosch(G, Rnext, Pnext, Xnext, bestClique);// Recursive call
+        -:   64:
+      314:   65:        P.erase(std::remove(P.begin(), P.end(), v), P.end());// Remove v from P
+      314:   66:        X.push_back(v);// Add v to X
+      314:   67:    }
+      177:   68:}
+        -:   69:
+        -:   70:/**
+        -:   71: * @brief Finds the maximum clique in a graph.
+        -:   72: * @param G The graph
+        -:   73: * @return A vector containing the vertices of the maximum clique.
+        -:   74: */
+       18:   75:std::vector<int> find_max_clique(const Graph& G) {
+       18:   76:    int n = G.get_num_of_vertex();
+       54:   77:    std::vector<int> R, P(n), X, best;
+      168:   78:    for (int i = 0; i < n; i++) P[i] = i;//define P
+       18:   79:    bronKerbosch(G, R, P, X, best);// Call the Bron-Kerbosch algorithm
+       36:   80:    return best;
+       18:   81:}
+        -:   82:
+        -:   83:}

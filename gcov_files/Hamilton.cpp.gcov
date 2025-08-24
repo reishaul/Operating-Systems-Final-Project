@@ -1,0 +1,71 @@
+        -:    0:Source:src/algorithms/Hamilton.cpp
+        -:    0:Graph:src/algorithms/Hamilton.gcno
+        -:    0:Data:src/algorithms/Hamilton.gcda
+        -:    0:Runs:1
+        -:    1:#include "algorithms/Hamilton.hpp"
+        -:    2:#include <functional>
+        -:    3:
+        -:    4:#include <unordered_set>
+        -:    5:#include <algorithm>
+        -:    6:
+        -:    7:using namespace graph;
+        -:    8:
+        -:    9:namespace {
+        -:   10:
+        -:   11:// Checks if there is an edge between vertices u and v
+    51970:   12:bool hasEdge(const Graph& G, int u, int v){
+        -:   13:
+    51970:   14:    auto edges = G.get_edges(); // Get all edges in the graph
+        -:   15:    //if (u>v) std::swap(u,v);// Ensure u < v
+   724985:   16:    for (auto &e : edges){
+        -:   17:        int a,b;//src, dest
+   686370:   18:        a = std::get<0>(e);
+   686370:   19:        b = std::get<1>(e);
+        -:   20:        
+   686370:   21:        if ((a==u && b==v) || (a==v &&b==u)) return true;
+        -:   22:    }
+    38615:   23:    return false;
+    51970:   24:}
+        -:   25:}
+        -:   26:
+        -:   27:/**
+        -:   28: * Finds a Hamiltonian cycle in the given graph.
+        -:   29: * @param G The input graph
+        -:   30: * @return A vector containing the vertices in the Hamiltonian cycle, or an empty vector if no such cycle exists
+        -:   31: */
+       18:   32:std::vector<int> find_hamiltonian_cycle(const Graph& G){
+       18:   33:    int n = G.get_num_of_vertex();
+      18*:   34:    if (n<=1) return {};
+        -:   35:
+       18:   36:    std::vector<int> path(n, -1), best;
+       18:   37:    std::vector<char> used(n, false);// Track used vertices
+       18:   38:    std::vector<int> res;
+        -:   39:
+        -:   40:    // Depth-first search (DFS) to find Hamiltonian cycle
+    #####:   41:    std::function<bool(int)> dfs = [&](int index)->bool{
+        -:   42:        // Check if all vertices are included
+    13495:   43:        if (index==n){
+      187:   44:            if (hasEdge(G, path[n-1], path[0])) {
+        4:   45:                res = path;
+        4:   46:                res.push_back(path[0]); // Close the cycle
+        4:   47:                return true;
+        -:   48:            }
+      183:   49:            return false;
+        -:   50:        }
+        -:   51:        // Try all possible next vertices
+   146042:   52:        for (int v=0; v<n; ++v){
+   132762:   53:            if (!used[v] &&(index==0 || hasEdge(G, path[index-1], v))){
+    13477:   54:                path[index]=v;
+    13477:   55:                used[v]=true;
+        -:   56:
+    13477:   57:                if (dfs(index+1)) return true;
+    13449:   58:                path[index]=-1;
+        -:   59:
+    13449:   60:                used[v]=false;
+        -:   61:            }
+        -:   62:        }
+    13280:   63:        return false;
+       18:   64:    };
+       18:   65:    dfs(0);// Start DFS from the second vertex
+       18:   66:    return res;// Return the best found Hamiltonian cycle
+       18:   67:}

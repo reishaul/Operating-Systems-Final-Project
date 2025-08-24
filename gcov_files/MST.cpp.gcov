@@ -1,0 +1,56 @@
+        -:    0:Source:src/algorithms/MST.cpp
+        -:    0:Graph:src/algorithms/MST.gcno
+        -:    0:Data:src/algorithms/MST.gcda
+        -:    0:Runs:1
+        -:    1:#include "algorithms/MST.hpp"
+        -:    2:#include "Graph.hpp"
+        -:    3:#include <algorithm>
+        -:    4:
+        -:    5:/**
+        -:    6: * implement Kruskal's algorithm for finding the minimum spanning tree (MST) of a graph
+        -:    7: */
+        -:    8:namespace {
+        -:    9:
+        -:   10:struct DSU {// Disjoint Set Union (DSU) data structure
+        -:   11:    std::vector<int> p, r;//p[i] = parent of i, r[i] = rank of i
+        -:   12:
+      222:   13:    explicit DSU(int n): p(n), r(n,0) { for (int i=0;i<n;++i) p[i]=i; }//constructor
+        -:   14:
+      501:   15:    int find(int x){ return p[x]==x?x:p[x]=find(p[x]); }//find return the candidate of the set
+        -:   16:
+      170:   17:    bool unite(int a,int b){//union the sets that contain a and b 
+      170:   18:        a=find(a); b=find(b);
+      170:   19:        if(a==b) return false;
+      127:   20:        if(r[a]<r[b]) std::swap(a,b);
+      127:   21:        p[b]=a;
+      127:   22:        if(r[a]==r[b]) ++r[a];
+      127:   23:        return true;
+        -:   24:    }
+        -:   25:};
+        -:   26:}
+        -:   27:
+        -:   28:/** 
+        -:   29: * Kruskal's algorithm for finding the minimum spanning tree (MST) of a graph
+        -:   30: */
+       18:   31:long long mst_weight_kruskal(const graph::Graph& G){
+       18:   32:    const int n = G.get_num_of_vertex();
+       18:   33:    auto edges = G.get_edges(); 
+        -:   34:
+       18:   35:    std::vector<std::tuple<int,int,int>> E(edges.begin(), edges.end());// Convert edges to a vector of tuples (src, dest, weight)
+        -:   36:
+       18:   37:    std::sort(E.begin(), E.end(),
+      918:   38:              [](auto &a, auto &b){ return std::get<2>(a) < std::get<2>(b); });//sort the edges by weight
+        -:   39:
+       18:   40:    DSU dsu(n);// Disjoint Set Union (DSU) for Kruskal's algorithm
+       18:   41:    long long total = 0;
+       18:   42:    int used = 0;
+      175:   43:    for (auto &e : E) {// Iterate over the edges
+        -:   44:        int u,v,w; 
+      170:   45:        std::tie(u,v,w)=e;// Extract the edge information
+      170:   46:        if (dsu.unite(u,v)) {
+      127:   47:            total += w; ++used; if (used == n-1) break;
+        -:   48:        }
+        -:   49:    }
+        -:   50:    // If the graph is not connected, there is no "true" MST; return the sum of the minimum spanning forest
+       18:   51:    return total;
+       18:   52:}

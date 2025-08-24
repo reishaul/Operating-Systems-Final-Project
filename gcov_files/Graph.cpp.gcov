@@ -1,0 +1,166 @@
+        -:    0:Source:src/Graph.cpp
+        -:    0:Graph:src/Graph.gcno
+        -:    0:Data:src/Graph.gcda
+        -:    0:Runs:1
+        -:    1:// reishaul1@gmail.com
+        -:    2:/** 
+        -:    3: The Graph class represents an undirected graph using an adjacency list.
+        -:    4: It provides methods to add and remove edges, print the graph, and retrieve
+        -:    5: graph-related information such as the number of vertices and edges.
+        -:    6:*/
+        -:    7:#include "Graph.hpp"
+        -:    8:#include "algorithms/MST.hpp" // Include the MST algorithm for minimum spanning tree functionality
+        -:    9:#include "algorithms/MaxFlow.hpp" // Include the MaxFlow algorithm
+        -:   10:#include <stack>
+        -:   11:#include <algorithm>
+        -:   12:
+        -:   13:
+        -:   14:namespace graph {
+        -:   15:
+        -:   16:/**
+        -:   17: * @brief Constructs a graph with the given number of vertices.
+        -:   18: * @param num_ver The number of vertices in the graph.
+        -:   19: * @throws std::invalid_argument if the number of vertices is invalid.
+        -:   20: */
+       23:   21:Graph::Graph(int num_ver) : num_of_vertex(num_ver) {
+        -:   22:    // if ( num_ver <= 0) {
+        -:   23:    //     throw std::invalid_argument("Invalid number of vertex");
+        -:   24:    // }//there is already a check in the server
+       23:   25:    adj_list.resize(num_ver);
+       23:   26:}
+        -:   27:
+        -:   28:/**
+        -:   29: * @brief Adds an edge between two vertices with a specified weight.
+        -:   30: * @param src Source vertex.
+        -:   31: * @param dest Destination vertex.
+        -:   32: * @param w Weight of the edge.
+        -:   33: */
+      212:   34:void Graph::addEdge(int src, int dest, int w) {
+      212:   35:    validVertex(src);
+      212:   36:    validVertex(dest);
+        -:   37:
+      212:   38:    adj_list[src].push_back({dest, w});
+      212:   39:    if (src != dest) {
+      212:   40:        adj_list[dest].push_back({src, w});
+        -:   41:    }
+        -:   42:    //edges.push_back({src, dest, w});
+      212:   43:}
+        -:   44:
+        -:   45:/**
+        -:   46: * @brief Returns the number of vertices in the graph.
+        -:   47: * @return The number of vertices.
+        -:   48: */
+       72:   49:int Graph::get_num_of_vertex() const{
+       72:   50:    return num_of_vertex;
+        -:   51:}
+        -:   52:
+        -:   53:/**
+        -:   54: * @brief Retrieves all edges in the graph.
+        -:   55: * @param numEdges Reference to store the number of edges found.
+        -:   56: * @return A dynamically allocated array of edges.
+        -:   57: */
+    51988:   58:std::vector<std::tuple<int,int,int>> Graph::get_edges() const {
+    51988:   59:    std::vector<std::tuple<int,int,int>> edges;
+        -:   60:
+   571412:   61:    for (int i = 0; i < num_of_vertex; ++i) {
+  2077156:   62:        for(const auto& edge : adj_list[i]) {
+  1557732:   63:            if(i < edge.dest) { // to avoid duplicates in undirected graphs
+   778866:   64:                edges.emplace_back(i, edge.dest, edge.weight);
+        -:   65:            }
+        -:   66:        }
+        -:   67:    }
+    51988:   68:    return edges;
+    =====:   69:}
+        -:   70:
+     1125:   71:void Graph::validVertex(int v) const {
+     1125:   72:    if (v < 0 || v >= num_of_vertex){
+    #####:   73:        throw std::out_of_range("Vertex index out of range");
+        -:   74:    }
+     1125:   75:}
+        -:   76:
+        -:   77:/**
+        -:   78: * @brief Returns the degree of a vertex.
+        -:   79: * @param v Vertex index
+        -:   80: * @return The degree of the vertex.
+        -:   81: * @throws std::out_of_range if the vertex index is invalid.
+        -:   82: */
+        -:   83:// int Graph::degree(int v) const {
+        -:   84://     validVertex(v);
+        -:   85://     return static_cast<int>(adj_list[v].size());
+        -:   86:// }
+        -:   87:
+        -:   88:
+        -:   89:/**
+        -:   90: * @brief Checks if the graph is connected ignoring isolated vertices.
+        -:   91: * @return true if the graph is connected, false otherwise.
+        -:   92: */
+        -:   93:// bool Graph::isConnected() const {
+        -:   94://     int a=-1;
+        -:   95://     for (int i = 0; i < num_of_vertex; ++i) {
+        -:   96://         if (degree(i) > 0) {
+        -:   97://             a = i;
+        -:   98://             break;
+        -:   99://         }
+        -:  100://     }
+        -:  101://     if (a == -1) return true; // If there is no any edges, the graph is trivially connected
+        -:  102:
+        -:  103://     std::vector<bool> visited(num_of_vertex, false);
+        -:  104://     std::stack<int> stack;
+        -:  105:
+        -:  106://     stack.push(a);
+        -:  107://     visited[a] = true;
+        -:  108:
+        -:  109://     // Perform DFS to check connectivity
+        -:  110://     // We use a stack to avoid recursion depth issues in large graphs
+        -:  111://     while (!stack.empty()) {
+        -:  112://         int v = stack.top();
+        -:  113://         stack.pop();
+        -:  114:
+        -:  115://         for (const auto& edge : adj_list[v]) {
+        -:  116://             if (!visited[edge.dest]) {
+        -:  117://                 visited[edge.dest] = true;
+        -:  118://                 stack.push(edge.dest);
+        -:  119://             }
+        -:  120://         }
+        -:  121://     }
+        -:  122:
+        -:  123://     for(int i = 0; i < num_of_vertex; ++i) {
+        -:  124://         if (degree(i) > 0 && !visited[i]) {
+        -:  125://             return false; // Found a vertex with edges that is not visited
+        -:  126://         }
+        -:  127://     }
+        -:  128://     return true; // All vertices with edges are connected
+        -:  129:// }
+        -:  130:
+        -:  131://for the algserver 
+        -:  132:
+        -:  133://function to find the minimum spanning tree weight
+       18:  134:long long Graph::mst_weight() const {
+       18:  135:    return mst_weight_kruskal(*this);
+        -:  136:}
+        -:  137:
+       18:  138:int Graph::max_flow(int a, int b) const {
+       18:  139:    int n = num_of_vertex;
+       18:  140:    MaxFlow mf(n);
+        -:  141:
+        -:  142:    // Initialize the MaxFlow object with the graph's edges
+      168:  143:    for (int u = 0; u < n; ++u) {
+      570:  144:        for (auto &e : adj_list[u]) {
+      420:  145:            mf.addEdge(u, e.dest, e.weight);
+        -:  146:        }
+        -:  147:    }
+       36:  148:    return mf.getMaxFlow(a, b);
+       18:  149:}
+        -:  150:
+        -:  151:/**
+        -:  152: * @brief Returns the neighbors of a vertex.
+        -:  153: * @param v Vertex index
+        -:  154: * @return A reference to the adjacency list of the vertex.
+        -:  155: * @throws std::out_of_range if the vertex index is invalid.
+        -:  156: */
+      701:  157:const std::vector<Graph::Edge>& Graph::neighbors(int v) const {
+      701:  158:    validVertex(v);
+      701:  159:    return adj_list[v];
+        -:  160:}
+        -:  161:  
+        -:  162:} 
