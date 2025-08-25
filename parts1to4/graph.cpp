@@ -28,8 +28,8 @@ Graph::Graph(int num_ver) : num_of_vertex(num_ver) {
 /**
  * @brief Adds an edge between two vertices with a specified weight.
  * @param src Source vertex.
- * @param dest Destination vertex.
- * @param w Weight of the edge.
+ * @param dest Destination vertex
+ * @param w Weight of the edge
  */
 void Graph::addEdge(int src, int dest, int w) {
     validVertex(src);
@@ -39,7 +39,6 @@ void Graph::addEdge(int src, int dest, int w) {
     if (src != dest) {
         adj_list[dest].push_back({src, w});
     }
-    //edges.push_back({src, dest, w});
 }
 
 /**
@@ -78,9 +77,9 @@ void Graph::print_graph() {//printing the graph in a logical way
  * @brief Returns the number of vertices in the graph.
  * @return The number of vertices.
  */
-int Graph::get_num_of_vertex() const{
-    return num_of_vertex;
-}
+// int Graph::get_num_of_vertex() const{
+//     return num_of_vertex;
+// }
 
 /**
  * @brief Retrieves all edges in the graph.
@@ -292,9 +291,9 @@ std::vector<int> Graph::get_eulerian_cycle() const {
  * @return A reference to the adjacency list of the vertex.
  * @throws std::out_of_range if the vertex index is invalid.
  */
-const std::vector<Graph::Edge>& Graph::neighbors(int v) const {
-    validVertex(v);
-    return adj_list[v];
-}
+// const std::vector<Graph::Edge>& Graph::neighbors(int v) const {
+//     validVertex(v);
+//     return adj_list[v];
+// }
   
 } // namespace graph

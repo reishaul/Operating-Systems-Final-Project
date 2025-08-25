@@ -37,25 +37,16 @@ public:
 
     void print_graph();
 
-    int get_num_of_vertex() const;
+    //int get_num_of_vertex() const;
 
     std::vector<std::tuple<int,int,int>> get_edges() const;
 
     bool has_eulerian_cycle() const;
     std::vector<int> get_eulerian_cycle() const;
 
-    //for algserver:
-
-    //long long mst_weight() const;//implementation in cpp file
-
-    auto find_hamiltonian_cycle() const {
-        return std::vector<int>{};
-    }
-
-    //int max_flow(int a, int b) const;
 
     // Get neighbors of a vertex
-    const std::vector<Edge>& neighbors(int v) const;
+    //const std::vector<Edge>& neighbors(int v) const;
 
 
 

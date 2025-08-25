@@ -131,7 +131,9 @@ int main(int argc, char* argv[]) {
         auto ecircuit = gr.get_eulerian_cycle();
         if (ecircuit.empty()) {
             std::cout << "No Eulerian circuit found\n";
-        } else {
+        }
+        else {
+            
             std::cout << "Eulerian circuit found: ";
             for (int v : ecircuit) {
                 std::cout << v << " ";
