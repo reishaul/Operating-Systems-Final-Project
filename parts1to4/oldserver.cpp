@@ -1,4 +1,4 @@
-#include "Graph.hpp"// Include the Graph class header
+#include "graph.hpp"// Include the Graph class header
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -12,7 +12,6 @@
 #include <vector>
 #include <atomic>
 #include <thread>//for thread using
-
 
 
 using namespace graph;
